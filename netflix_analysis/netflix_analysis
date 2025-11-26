@@ -1,0 +1,53 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load CSV
+df = pd.read_csv("nflx_data.csv")
+
+df['Date'] = pd.to_datetime(df['Date'])
+df = df.sort_values('Date')
+y = df['Close/Last'].values
+x = np.arange(len(y))
+
+orders = range(1, 10)  # Polynomial orders 1–9
+chi2_per_dof_list = []
+bic_list = []
+
+for n in orders:
+    coeffs = np.polyfit(x, y, n)
+    model = np.polyval(coeffs, x)
+
+    residuals = y - model
+    chi2 = np.sum(residuals**2)
+    dof = len(y) - (n + 1)
+    chi2_per_dof = chi2 / dof
+    chi2_per_dof_list.append(chi2_per_dof)
+
+    k = n + 1  # number of parameters
+    n_points = len(y)
+    bic = n_points * np.log(chi2 / n_points) + k * np.log(n_points)
+    bic_list.append(bic)
+
+# Plot Chi² per DOF
+plt.plot(orders, chi2_per_dof_list, marker='o')
+plt.xlabel("Polynomial Order")
+plt.ylabel("Chi² per DOF")
+plt.title("Chi² per Degree of Freedom vs Polynomial Order")
+plt.show()
+
+# Plot BIC
+plt.plot(orders, bic_list, marker='o')
+plt.xlabel("Polynomial Order")
+plt.ylabel("BIC")
+plt.title("BIC vs Polynomial Order")
+plt.show()
+
+print("Chi² per DOF:", chi2_per_dof_list)
+print("BIC:", bic_list)
+
+best_order_chi2 = orders[np.argmin(chi2_per_dof_list)]
+best_order_bic = orders[np.argmin(bic_list)]
+
+print("Best model by Chi² per DOF:", best_order_chi2)
+print("Best model by BIC:", best_order_bic)
