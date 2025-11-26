@@ -1,0 +1,85 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+
+# --------------------------
+# Step 1: Load and clean data
+# --------------------------
+df = pd.read_csv("nflx_data.csv")
+
+df['Date'] = pd.to_datetime(df['Date'])
+df = df.sort_values('Date')
+
+# Remove $ and commas, convert to numeric
+df['Close/Last'] = df['Close/Last'].str.replace('$', '', regex=False)
+df['Close/Last'] = df['Close/Last'].str.replace(',', '', regex=False)
+df['Close/Last'] = pd.to_numeric(df['Close/Last'], errors='coerce')
+df = df.dropna(subset=['Close/Last'])
+
+x = np.arange(len(df))
+y = df['Close/Last'].values
+
+# --------------------------
+# Step 2: Polynomial Fit
+# --------------------------
+best_order_bic = 3  # <-- update with your Activity 3 BIC best order
+
+# Initial fit using numpy
+coeffs = np.polyfit(x, y, best_order_bic)
+
+# Use curve_fit to get covariance
+def poly_func(x, *params):
+    return sum([params[i] * x**(best_order_bic - i) for i in range(len(params))])
+
+popt_poly, pcov_poly = curve_fit(poly_func, x, y, p0=coeffs)
+param_uncert_poly = np.sqrt(np.diag(pcov_poly))
+
+print(f"Polynomial order {best_order_bic} coefficients:", popt_poly)
+print("Polynomial covariance matrix:\n", pcov_poly)
+print("Polynomial parameter uncertainties:", param_uncert_poly)
+
+# --------------------------
+# Step 3: Exponential Fit
+# --------------------------
+def exp_func(x, a, b):
+    return a * np.exp(b * x)
+
+popt_exp, pcov_exp = curve_fit(exp_func, x, y, p0=(y[0], 0.001))
+param_uncert_exp = np.sqrt(np.diag(pcov_exp))
+
+print("\nExponential parameters:", popt_exp)
+print("Exponential covariance matrix:\n", pcov_exp)
+print("Exponential parameter uncertainties:", param_uncert_exp)
+
+# --------------------------
+# Step 4: BIC Comparison
+# --------------------------
+def calculate_bic(y, y_fit, num_params):
+    n = len(y)
+    rss = np.sum((y - y_fit)**2)
+    return n * np.log(rss / n) + num_params * np.log(n)
+
+bic_poly = calculate_bic(y, poly_func(x, *popt_poly), len(popt_poly))
+bic_exp = calculate_bic(y, exp_func(x, *popt_exp), len(popt_exp))
+
+print(f"\nBIC Polynomial (order {best_order_bic}): {bic_poly}")
+print(f"BIC Exponential: {bic_exp}")
+
+if bic_exp < bic_poly:
+    print("Exponential model is better by BIC")
+else:
+    print(f"Polynomial order {best_order_bic} is better by BIC")
+
+# --------------------------
+# Step 5: Plot Data and Models
+# --------------------------
+plt.figure(figsize=(10,5))
+plt.plot(x, y, 'b.', label='Data')
+plt.plot(x, poly_func(x, *popt_poly), 'r-', label=f'Polynomial order {best_order_bic}')
+plt.plot(x, exp_func(x, *popt_exp), 'g--', label='Exponential')
+plt.xlabel('Time index')
+plt.ylabel('Netflix Close/Last')
+plt.legend()
+plt.title('Netflix Closing Price: Polynomial vs Exponential Fit')
+plt.show()
