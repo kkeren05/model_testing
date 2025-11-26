@@ -5,44 +5,64 @@ import matplotlib.pyplot as plt
 # Load CSV
 df = pd.read_csv("nflx_data.csv")
 
+# Convert Date to datetime and sort
 df['Date'] = pd.to_datetime(df['Date'])
 df = df.sort_values('Date')
+
+# --- CLEAN Close/Last COLUMN ---
+# Remove $ and commas, convert to float
+df['Close/Last'] = df['Close/Last'].str.replace('$', '', regex=False)
+df['Close/Last'] = df['Close/Last'].str.replace(',', '', regex=False)
+df['Close/Last'] = pd.to_numeric(df['Close/Last'], errors='coerce')
+
+# Drop rows with invalid Close/Last
+df = df.dropna(subset=['Close/Last'])
+
+# Define x (index) and y (closing price)
 y = df['Close/Last'].values
 x = np.arange(len(y))
 
+# --- POLYNOMIAL FITTING ---
 orders = range(1, 10)  # Polynomial orders 1–9
 chi2_per_dof_list = []
 bic_list = []
 
 for n in orders:
+    # Fit polynomial
     coeffs = np.polyfit(x, y, n)
     model = np.polyval(coeffs, x)
 
+    # Residuals
     residuals = y - model
+
+    # Chi² per degree of freedom
     chi2 = np.sum(residuals**2)
     dof = len(y) - (n + 1)
     chi2_per_dof = chi2 / dof
     chi2_per_dof_list.append(chi2_per_dof)
 
+    # BIC
     k = n + 1  # number of parameters
     n_points = len(y)
     bic = n_points * np.log(chi2 / n_points) + k * np.log(n_points)
     bic_list.append(bic)
 
-# Plot Chi² per DOF
+# --- PLOTS ---
+# Chi² per DOF
 plt.plot(orders, chi2_per_dof_list, marker='o')
 plt.xlabel("Polynomial Order")
 plt.ylabel("Chi² per DOF")
 plt.title("Chi² per Degree of Freedom vs Polynomial Order")
 plt.show()
 
-# Plot BIC
+# BIC
 plt.plot(orders, bic_list, marker='o')
 plt.xlabel("Polynomial Order")
 plt.ylabel("BIC")
 plt.title("BIC vs Polynomial Order")
 plt.show()
 
+# --- OUTPUT BEST MODELS ---
 print("Chi² per DOF:", chi2_per_dof_list)
 print("BIC:", bic_list)
 
